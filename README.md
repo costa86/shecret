@@ -4,7 +4,7 @@
 
 ## Description
 
-Shecret is a CLI SSH/SFPT client
+Shecret is a CLI SSH/SFTP client
 
 ## Usage
 
