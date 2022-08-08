@@ -10,6 +10,8 @@ Shecret is a CLI SSH/SFTP client
 
     ./shecret
 
+Once the connection is selected, the full SSH/SFTP command will be stored on your clipboard, then just paste it on the terminal!
+
 ## Features
 
 ![features](./images/main.png)
