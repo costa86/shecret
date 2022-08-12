@@ -1,4 +1,4 @@
-# Schecret
+# Shecret
 
 ![sean](./images/sean.jpg)
 
