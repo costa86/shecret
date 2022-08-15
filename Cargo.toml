@@ -1,12 +1,13 @@
 [package]
 name = "shecret"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Lorenzo Costa <costa86.com>"]
 description = "A CLI SSH/SFTP client"
 license = "MIT"
-keywords = ["cli", "ssh", "sftp", "server", "linux", "sysadmin"]
-
+keywords = ["cli", "ssh", "sftp", "server", "sysadmin"]
+repository = "https://github.com/costa86/shecret"
+documentation = "https://crates.io/crates/shecret"
 
 [dependencies]
 copypasta = "0.8.1"
