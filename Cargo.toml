@@ -1,6 +1,6 @@
 [package]
 name = "shecret"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["Lorenzo Costa <costa86.com>"]
 description = "A CLI SSH/SFTP client"
@@ -14,3 +14,4 @@ copypasta = "0.8.1"
 rusqlite = "0.28.0"
 tabled = "0.8.0"
 colored = "2.0.0"
+home = "0.5.3"

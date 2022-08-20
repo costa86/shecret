@@ -1,13 +1,15 @@
 use colored::*;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use rusqlite::{params, Connection, Result};
+use std::io::Error;
 use std::net::IpAddr;
 use std::process::Command;
+use std::thread;
 use std::{io::stdin, u8};
 use tabled::{Style, Table, Tabled};
 
 pub const TABLE: &str = "server_connections";
-pub const SQL_FILE: &str = "shecret.db3";
+
 
 #[derive(Debug, Tabled)]
 pub struct ServerConnection {
@@ -141,6 +143,61 @@ pub fn get_connections(conn: &Connection) -> Result<Vec<ServerConnection>> {
     Ok(records)
 }
 
+fn run_cmd(cmd: &str, arguments: &[&str]) -> Result<(), Error> {
+    Command::new(cmd).args(arguments).spawn()?;
+    Ok(())
+}
+
+///Run SSH commands
+fn run_commands(commands: Vec<String>) {
+    let handle = thread::spawn(|| {
+        for i in commands {
+            let ssh_command = i.split_once("ssh ").unwrap().1;
+            let alias = i.split_once("alias").unwrap().0;
+            let ssh_command: Vec<&str> = ssh_command.split_whitespace().collect();
+
+            match run_cmd("ssh", &ssh_command) {
+                Ok(_) => display_message(
+                    "ok",
+                    format!("SSH command sent to {alias}").as_str(),
+                    "green",
+                ),
+                Err(e) => display_message("error", &e.to_string(), "red"),
+            };
+        }
+    });
+
+    handle.join().unwrap();
+}
+
+///Issue SSH command to multiple servers
+pub fn issue_command(records: &Vec<ServerConnection>) -> Result<()> {
+    let id_list = get_input("Connection ID's (separated by spaces):");
+    let id_list: Vec<u8> = id_list
+        .split_whitespace()
+        .map(|x| x.parse::<u8>().unwrap())
+        .collect();
+
+    let ssh_command = get_input("SSH command");
+
+    let mut command_list: Vec<String> = Vec::new();
+
+    for i in id_list {
+        for r in records {
+            if r.id == i {
+                let mut full_command = String::from(&r.alias);
+                full_command.push_str("alias");
+                full_command.push_str(&r.get_command("ssh"));
+                full_command.push_str(" ");
+                full_command.push_str(&ssh_command);
+                command_list.push(full_command.to_string());
+            }
+        }
+    }
+    run_commands(command_list);
+    Ok(())
+}
+
 ///Start SSH/SFTP connection
 pub fn start_connection(records: &Vec<ServerConnection>) -> Result<()> {
     let id = get_input("Connection ID:");
@@ -171,7 +228,7 @@ pub fn start_connection(records: &Vec<ServerConnection>) -> Result<()> {
 
 ///Display message
 pub fn display_message(message_type: &str, message: &str, color: &str) {
-    let msg = format!("[{}] {}", message_type, message).color(color);
+    let msg = format!("[{}] {}", message_type.to_uppercase(), message).color(color);
     println!("{msg}");
 }
 
