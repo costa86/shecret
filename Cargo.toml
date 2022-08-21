@@ -1,10 +1,10 @@
 [package]
 name = "shecret"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 authors = ["Lorenzo Costa <costa86.tech>"]
 description = "A CLI SSH/SFTP client"
-license = "MIT"
+license = "GNU GPLv3"
 keywords = ["cli", "ssh", "sftp", "server", "sysadmin"]
 repository = "https://github.com/costa86/shecret"
 documentation = "https://docs.rs/shecret/latest/shecret/"
