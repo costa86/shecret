@@ -1,6 +1,6 @@
 [package]
 name = "shecret"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = ["Lorenzo Costa <costa86.tech>"]
 description = "A CLI SSH/SFTP client"
