@@ -2,12 +2,13 @@
 name = "shecret"
 version = "0.1.4"
 edition = "2021"
-authors = ["Lorenzo Costa <costa86.com>"]
+authors = ["Lorenzo Costa <costa86.tech>"]
 description = "A CLI SSH/SFTP client"
 license = "MIT"
 keywords = ["cli", "ssh", "sftp", "server", "sysadmin"]
 repository = "https://github.com/costa86/shecret"
 documentation = "https://docs.rs/shecret/latest/shecret/"
+homepage = "https://docs.rs/shecret/latest/shecret/"
 
 [dependencies]
 copypasta = "0.8.1"

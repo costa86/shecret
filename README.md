@@ -29,3 +29,7 @@ Download this [file](https://github.com/costa86/shecret/blob/master/shecret) and
 ## 4. Demo
 
 [![asciicast](https://asciinema.org/a/gWB0W7h4BER9Raaq4DzpNEsYk.svg)](https://asciinema.org/a/gWB0W7h4BER9Raaq4DzpNEsYk)
+
+## 5. Documentation
+
+https://docs.rs/shecret/latest/shecret/

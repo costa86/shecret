@@ -17,13 +17,14 @@ fn main() -> Result<()> {
     let mut input = String::new();
 
     let title = format!(
-        "{} - {}\nAuthors: {}\nVersion: {}\nLicense: {}\nDatabase path: {}\nCrafted with ❤️ using Rust language\n",
+        "\n{} - {}\nAuthors: {}\nVersion: {}\nLicense: {}\nDatabase path: {}\nDocumentation: {}\nCrafted with ❤️ using Rust language\n",
         env!("CARGO_PKG_NAME").to_uppercase(),
         env!("CARGO_PKG_DESCRIPTION"),
         env!("CARGO_PKG_AUTHORS"),
         env!("CARGO_PKG_VERSION"),
         env!("CARGO_PKG_LICENSE"),
-        &sql_file
+        &sql_file,
+        env!("CARGO_PKG_HOMEPAGE")
     )
     .color("yellow");
     println!("{title}");
