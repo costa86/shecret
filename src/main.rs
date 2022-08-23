@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             "CC" => create_server_connection(&conn)?,
             "LC" => display_connections(&get_connections(&conn).unwrap()),
             "SC" => start_connection(&get_connections(&conn).unwrap())?,
-            "DC" => delete_record(&conn, &get_input("ID to delete:"))?,
+            "DC" => delete_record(&conn, &get_input("ID to delete:", "0"))?,
             "PD" => purge_database(&conn)?,
             "CK" => create_key()?,
             "IC" => issue_command(&get_connections(&conn).unwrap())?,

@@ -9,7 +9,9 @@ use std::{io::stdin, u8};
 use tabled::{Style, Table, Tabled};
 
 pub const TABLE: &str = "server_connections";
-
+const ALL: &str = "all";
+const SSH: &str = "ssh";
+const DEFAULT_SSH_COMMAND: &str = "hostname";
 
 #[derive(Debug, Tabled)]
 pub struct ServerConnection {
@@ -69,18 +71,14 @@ pub fn purge_database(conn: &Connection) -> Result<()> {
 
 ///Create server connection on database
 pub fn create_server_connection(conn: &Connection) -> Result<()> {
-    let user = get_input("User:");
-    let ip = get_input("IP:");
+    let user = get_input("User", env!("USER"));
+    let ip = get_input("IP", "0.0.0.0");
 
     match ip.parse::<IpAddr>() {
         Ok(_) => {
-            let key_path = get_input("Public key path:");
-            let mut port = get_input("Port: 22 (default)");
-            let alias = get_input("Alias:");
-
-            if port.len() == 0 {
-                port = "22".to_string();
-            }
+            let key_path = get_input("Public key path", ".");
+            let port = get_input("Port", "22");
+            let alias = get_input("Alias", "sample");
 
             let record = ServerConnection {
                 id: 0,
@@ -107,11 +105,16 @@ pub fn create_server_connection(conn: &Connection) -> Result<()> {
 }
 
 ///Get user input
-pub fn get_input(text: &str) -> String {
+pub fn get_input(text: &str, default: &str) -> String {
     let mut input = String::new();
-    println!("{}", text);
+    println!("{}: {} (default)", text, default);
+
     stdin().read_line(&mut input).unwrap();
-    String::from(input.trim())
+    let mut input = String::from(input.trim());
+    if input.len() == 0 {
+        input = default.to_string();
+    }
+    input
 }
 
 ///Display all database connections as a table
@@ -170,27 +173,38 @@ fn run_commands(commands: Vec<String>) {
     handle.join().unwrap();
 }
 
+fn create_command(ssh_command: &str, server_connection: &ServerConnection) -> String {
+    let mut full_command = String::from(&server_connection.alias);
+    full_command.push_str("alias");
+    full_command.push_str(server_connection.get_command("ssh").as_str());
+    full_command.push_str(" ");
+    full_command.push_str(&ssh_command);
+    full_command.to_string()
+}
+
 ///Issue SSH command to multiple servers
 pub fn issue_command(records: &Vec<ServerConnection>) -> Result<()> {
-    let id_list = get_input("Connection ID's (separated by spaces):");
+    let id_list = get_input("Connection ID's (separated by spaces)", &ALL);
+    let mut command_list: Vec<String> = Vec::new();
+    let ssh_command = get_input("SSH command", &DEFAULT_SSH_COMMAND);
+
+    if id_list == ALL {
+        for i in records {
+            command_list.push(create_command(&ssh_command, &i));
+        }
+        run_commands(command_list);
+        return Ok(());
+    }
+
     let id_list: Vec<u8> = id_list
         .split_whitespace()
-        .map(|x| x.parse::<u8>().unwrap())
+        .map(|x| x.parse::<u8>().unwrap_or_default())
         .collect();
-
-    let ssh_command = get_input("SSH command");
-
-    let mut command_list: Vec<String> = Vec::new();
 
     for i in id_list {
         for r in records {
             if r.id == i {
-                let mut full_command = String::from(&r.alias);
-                full_command.push_str("alias");
-                full_command.push_str(&r.get_command("ssh"));
-                full_command.push_str(" ");
-                full_command.push_str(&ssh_command);
-                command_list.push(full_command.to_string());
+                command_list.push(create_command(&ssh_command, &r));
             }
         }
     }
@@ -200,7 +214,7 @@ pub fn issue_command(records: &Vec<ServerConnection>) -> Result<()> {
 
 ///Start SSH/SFTP connection
 pub fn start_connection(records: &Vec<ServerConnection>) -> Result<()> {
-    let id = get_input("Connection ID:");
+    let id = get_input("Connection ID", "1");
 
     match id.parse::<u8>() {
         Ok(x) => {
@@ -208,11 +222,15 @@ pub fn start_connection(records: &Vec<ServerConnection>) -> Result<()> {
 
             for i in records {
                 if i.id == x {
-                    let connection_type =
-                        match get_input("Type: SSH (default) or type 1 for SFTP").as_str() {
-                            "1" => "sftp",
-                            _ => "ssh",
-                        };
+                    let connection_type = match get_input(
+                        "Connection type (1 for SFTP)",
+                        SSH.to_uppercase().as_str(),
+                    )
+                    .as_str()
+                    {
+                        "1" => "sftp",
+                        _ => SSH,
+                    };
                     let command = &i.get_command(connection_type);
                     set_clipboard(&command);
                     msg = format!("[OK] Sent to clipboad: {command}").color("green");
@@ -234,7 +252,7 @@ pub fn display_message(message_type: &str, message: &str, color: &str) {
 
 ///Create SSH key on current directory
 pub fn create_key() -> Result<()> {
-    let name = get_input("SSH key name");
+    let name = get_input("SSH key name", "sample");
 
     if name.len() < 2 {
         display_message("ERROR", "name is required", "red");
