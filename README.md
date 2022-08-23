@@ -9,7 +9,11 @@ Shecret is a CLI SSH/SFTP client
 
 Once the connection is selected, the full SSH/SFTP command will be stored on your clipboard, then just paste it on the terminal! 
 
-It also issues SSH commands to multiple servers at once (sort of what [Ansible](https://www.ansible.com/) does)
+It also issues SSH commands to multiple servers at once (sort of what [Ansible](https://www.ansible.com/) does).
+
+It also checks server status (ping), so you know whether the server is online.
+
+
 
 ## 2. Features
 

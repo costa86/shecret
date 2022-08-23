@@ -37,6 +37,7 @@ fn main() -> Result<()> {
     PD: Purge database (delete all server connections)
     CK: Create SSH key
     IC: Issue SSH command to multiple servers
+    CS: Check server status (online/offline)
     Q:  Quit";
 
     loop {
@@ -51,6 +52,7 @@ fn main() -> Result<()> {
             "PD" => purge_database(&conn)?,
             "CK" => create_key()?,
             "IC" => issue_command(&get_connections(&conn).unwrap())?,
+            "CS" => check_server_status(&get_connections(&conn).unwrap())?,
             "Q" => break,
             _ => {
                 display_message("ERROR", "Invalid option", "red");

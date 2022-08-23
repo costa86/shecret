@@ -120,7 +120,7 @@ pub fn get_input(text: &str, default: &str) -> String {
 ///Display all database connections as a table
 pub fn display_connections(records: &Vec<ServerConnection>) {
     let table = Table::new(records).with(Style::modern()).to_string();
-    println!("{table}");
+    println!("{table}\nQuantity: {}\n", records.len());
 }
 
 ///Get all database connections from database
@@ -271,5 +271,60 @@ pub fn create_key() -> Result<()> {
         }
         Err(_) => display_message("ERROR", "Error creating SSH key", "red"),
     }
+    Ok(())
+}
+
+fn ping_server(ip: &str) -> bool {
+    let cmd = Command::new("ping").args(["-c", "2", ip, "-q"]).spawn();
+    cmd.unwrap().wait_with_output().unwrap().status.success()
+}
+
+///Ping to check whether server is online
+pub fn check_server_status(records: &Vec<ServerConnection>) -> Result<()> {
+    let id_list = get_input("Connection ID's (separated by spaces)", &ALL);
+    let mut online_servers: Vec<&str> = Vec::new();
+    let mut offline_servers: Vec<&str> = Vec::new();
+
+    if &id_list.as_str() == &ALL {
+        for i in records {
+            let server_is_online = ping_server(&i.ip);
+            match server_is_online {
+                true => online_servers.push(&i.alias),
+                false => offline_servers.push(&i.alias),
+            }
+        }
+    } else {
+        let id_list: Vec<u8> = id_list
+            .split_whitespace()
+            .map(|x| x.parse::<u8>().unwrap_or_default())
+            .collect();
+
+        for i in id_list {
+            for r in records {
+                if r.id == i {
+                    let server_is_online = ping_server(&r.ip);
+                    match server_is_online {
+                        true => online_servers.push(&r.alias),
+                        false => offline_servers.push(&r.alias),
+                    }
+                }
+            }
+        }
+    }
+    let online_msg = format!(
+        "Online servers: {:?}. Quantity: {}",
+        online_servers,
+        online_servers.len(),
+    );
+
+    let offline_msg = format!(
+        "Offline servers: {:?}. Quantity: {}",
+        offline_servers,
+        offline_servers.len(),
+    );
+
+    display_message("✅", &online_msg, "green");
+    display_message("❌", &offline_msg, "red");
+
     Ok(())
 }
