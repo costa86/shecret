@@ -2,7 +2,6 @@ use colored::*;
 use home::home_dir;
 use rusqlite::{Connection, Result};
 use shecret::*;
-use std::{env, io::stdin};
 
 fn main() -> Result<()> {
     let sql_file = format!(
@@ -14,8 +13,6 @@ fn main() -> Result<()> {
     let conn = Connection::open(&sql_file)?;
     create_database(&conn)?;
 
-    let mut input = String::new();
-
     let title = format!(
         "\n{} - {}\nAuthors: {}\nVersion: {}\nLicense: {}\nDatabase path: {}\nDocumentation: {}\nCrafted with ❤️ using Rust language\n",
         env!("CARGO_PKG_NAME").to_uppercase(),
@@ -26,39 +23,31 @@ fn main() -> Result<()> {
         &sql_file,
         env!("CARGO_PKG_HOMEPAGE")
     )
-    .color("yellow");
+    .color("white");
     println!("{title}");
 
-    let options_menu = "Available options (case insensitive):
-    CC: Create a server connection
-    LC: List all server connections
-    SC: Start a connection
-    DC: Delete a server connection
-    PD: Purge database (delete all server connections)
-    CK: Create SSH key
-    IC: Issue SSH command to multiple servers
-    CS: Check server status (online/offline)
-    Q:  Quit";
-
     loop {
-        println!("{options_menu}");
-        stdin().read_line(&mut input).unwrap();
+        let (_, index) = get_user_selection(&CHOICES.to_vec(), "Option");
 
-        match input.to_uppercase().as_str().trim() {
-            "CC" => create_server_connection(&conn)?,
-            "LC" => display_connections(&get_connections(&conn).unwrap()),
-            "SC" => start_connection(&get_connections(&conn).unwrap())?,
-            "DC" => delete_record(&conn, &get_input("ID to delete:", "0"))?,
-            "PD" => purge_database(&conn)?,
-            "CK" => create_key()?,
-            "IC" => issue_command(&get_connections(&conn).unwrap())?,
-            "CS" => check_server_status(&get_connections(&conn).unwrap())?,
-            "Q" => break,
-            _ => {
-                display_message("ERROR", "Invalid option", "red");
+        match index {
+            0 => display_connections(&get_connections(&conn).unwrap()),
+            1 => start_connection(&get_connections(&conn).unwrap())?,
+            2 => create_server_connection(&conn)?,
+            3 => {
+                let connections = get_connections(&conn).unwrap();
+                let records_aliases: Vec<&str> =
+                    connections.iter().map(|x| x.alias.as_str()).collect();
+                delete_records_by_alias(
+                    &conn,
+                    &get_user_selection(&records_aliases, "Server connection to delete").0,
+                )?
             }
+            4 => purge_database(&conn)?,
+            5 => create_key()?,
+            6 => issue_command(&get_connections(&conn).unwrap())?,
+            7 => check_server_status(&get_connections(&conn).unwrap())?,
+            _ => break,
         }
-        input.clear();
     }
     Ok(())
 }

@@ -1,17 +1,27 @@
 use colored::*;
 use copypasta::{ClipboardContext, ClipboardProvider};
+use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
 use rusqlite::{params, Connection, Result};
 use std::io::Error;
 use std::net::IpAddr;
 use std::process::Command;
 use std::thread;
-use std::{io::stdin, u8};
 use tabled::{Style, Table, Tabled};
 
 pub const TABLE: &str = "server_connections";
-const ALL: &str = "all";
 const SSH: &str = "ssh";
 const DEFAULT_SSH_COMMAND: &str = "hostname";
+pub const CHOICES: [&str; 9] = [
+    "Display all server connections",
+    "Start a connection",
+    "Create a server connection",
+    "Delete a server connection",
+    "Purge database (delete all server connections)",
+    "Create SSH key",
+    "Issue SSH command to multiple servers",
+    "Check server status (online/offline)",
+    "Exit",
+];
 
 #[derive(Debug, Tabled)]
 pub struct ServerConnection {
@@ -20,7 +30,7 @@ pub struct ServerConnection {
     ip: String,
     key_path: String,
     port: String,
-    alias: String,
+    pub alias: String,
 }
 
 impl ServerConnection {
@@ -57,28 +67,33 @@ pub fn create_database(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-///Delete single database record
-pub fn delete_record(conn: &Connection, id: &str) -> Result<()> {
-    conn.execute(&format!("DELETE FROM {TABLE} WHERE id = ?1"), params![id])?;
+///Delete database records
+pub fn delete_records_by_alias(conn: &Connection, alias: &str) -> Result<()> {
+    conn.execute(
+        &format!("DELETE FROM {TABLE} WHERE alias = ?1"),
+        params![alias],
+    )?;
     Ok(())
 }
 
 ///Delete all database records
 pub fn purge_database(conn: &Connection) -> Result<()> {
-    conn.execute(&format!("DELETE FROM {TABLE}"), params![])?;
+    if get_user_confirmation("Are you sure you want to delete all server connections") {
+        conn.execute(&format!("DELETE FROM {TABLE}"), params![])?;
+    }
     Ok(())
 }
 
 ///Create server connection on database
 pub fn create_server_connection(conn: &Connection) -> Result<()> {
-    let user = get_input("User", env!("USER"));
-    let ip = get_input("IP", "0.0.0.0");
+    let user = get_user_input("User", env!("USER"));
+    let ip = get_user_input("IP", "0.0.0.0");
 
     match ip.parse::<IpAddr>() {
         Ok(_) => {
-            let key_path = get_input("Public key path", ".");
-            let port = get_input("Port", "22");
-            let alias = get_input("Alias", "sample");
+            let key_path = get_user_input("Public key path", ".");
+            let port = get_user_input("Port", "22");
+            let alias = get_user_input("Alias", "sample");
 
             let record = ServerConnection {
                 id: 0,
@@ -102,19 +117,6 @@ pub fn create_server_connection(conn: &Connection) -> Result<()> {
         }
     }
     Ok(())
-}
-
-///Get user input
-pub fn get_input(text: &str, default: &str) -> String {
-    let mut input = String::new();
-    println!("{}: {} (default)", text, default);
-
-    stdin().read_line(&mut input).unwrap();
-    let mut input = String::from(input.trim());
-    if input.len() == 0 {
-        input = default.to_string();
-    }
-    input
 }
 
 ///Display all database connections as a table
@@ -184,27 +186,26 @@ fn create_command(ssh_command: &str, server_connection: &ServerConnection) -> St
 
 ///Issue SSH command to multiple servers
 pub fn issue_command(records: &Vec<ServerConnection>) -> Result<()> {
-    let id_list = get_input("Connection ID's (separated by spaces)", &ALL);
     let mut command_list: Vec<String> = Vec::new();
-    let ssh_command = get_input("SSH command", &DEFAULT_SSH_COMMAND);
+    let ssh_command = get_user_input("SSH command", &DEFAULT_SSH_COMMAND);
 
-    if id_list == ALL {
-        for i in records {
-            command_list.push(create_command(&ssh_command, &i));
+    match get_user_confirmation("All servers") {
+        true => {
+            for i in records {
+                command_list.push(create_command(&ssh_command, &i));
+            }
+            run_commands(command_list);
+            return Ok(());
         }
-        run_commands(command_list);
-        return Ok(());
-    }
-
-    let id_list: Vec<u8> = id_list
-        .split_whitespace()
-        .map(|x| x.parse::<u8>().unwrap_or_default())
-        .collect();
-
-    for i in id_list {
-        for r in records {
-            if r.id == i {
-                command_list.push(create_command(&ssh_command, &r));
+        false => {
+            let records_aliases = records.iter().map(|x| x.alias.as_str()).collect();
+            let aliases_list = get_user_multi(&records_aliases, "Connections");
+            for i in aliases_list {
+                for r in records {
+                    if r.alias == i {
+                        command_list.push(create_command(&ssh_command, &r));
+                    }
+                }
             }
         }
     }
@@ -214,50 +215,35 @@ pub fn issue_command(records: &Vec<ServerConnection>) -> Result<()> {
 
 ///Start SSH/SFTP connection
 pub fn start_connection(records: &Vec<ServerConnection>) -> Result<()> {
-    let id = get_input("Connection ID", "1");
+    let records_aliases = records.iter().map(|x| x.alias.as_str()).collect();
+    let (server_alias, _) = get_user_selection(&records_aliases, "Connection");
+    let mut connection_type = get_user_input("Connection type (1 for SFTP)", &SSH);
 
-    match id.parse::<u8>() {
-        Ok(x) => {
-            let mut msg = format!("[WARNING] ID not found: {}", &x).color("yellow");
+    if &connection_type != &SSH {
+        connection_type = "sftp".to_string();
+    }
 
-            for i in records {
-                if i.id == x {
-                    let connection_type = match get_input(
-                        "Connection type (1 for SFTP)",
-                        SSH.to_uppercase().as_str(),
-                    )
-                    .as_str()
-                    {
-                        "1" => "sftp",
-                        _ => SSH,
-                    };
-                    let command = &i.get_command(connection_type);
-                    set_clipboard(&command);
-                    msg = format!("[OK] Sent to clipboad: {command}").color("green");
-                    break;
-                }
-            }
+    for i in records {
+        if i.alias == server_alias {
+            let command = &i.get_command(&connection_type);
+            set_clipboard(&command);
+            let msg = format!("[OK] Sent to clipboad: {}", &command).color("green");
             println!("{msg}");
+            break;
         }
-        Err(_) => display_message("ERROR", "Type a number to get an ID", "red"),
-    };
+    }
     Ok(())
 }
 
 ///Display message
 pub fn display_message(message_type: &str, message: &str, color: &str) {
     let msg = format!("[{}] {}", message_type.to_uppercase(), message).color(color);
-    println!("{msg}");
+    println!("\n{msg}\n");
 }
 
 ///Create SSH key on current directory
 pub fn create_key() -> Result<()> {
-    let name = get_input("SSH key name", "sample");
-
-    if name.len() < 2 {
-        display_message("ERROR", "name is required", "red");
-        return Ok(());
-    }
+    let name = get_user_input("SSH key name", "sample");
 
     match Command::new("ssh-keygen")
         .args([
@@ -281,50 +267,99 @@ fn ping_server(ip: &str) -> bool {
 
 ///Ping to check whether server is online
 pub fn check_server_status(records: &Vec<ServerConnection>) -> Result<()> {
-    let id_list = get_input("Connection ID's (separated by spaces)", &ALL);
     let mut online_servers: Vec<&str> = Vec::new();
     let mut offline_servers: Vec<&str> = Vec::new();
 
-    if &id_list.as_str() == &ALL {
-        for i in records {
-            let server_is_online = ping_server(&i.ip);
-            match server_is_online {
-                true => online_servers.push(&i.alias),
-                false => offline_servers.push(&i.alias),
+    match get_user_confirmation("Check all servers") {
+        true => {
+            for i in records {
+                match ping_server(&i.ip) {
+                    true => online_servers.push(&i.alias),
+                    false => offline_servers.push(&i.alias),
+                }
             }
         }
-    } else {
-        let id_list: Vec<u8> = id_list
-            .split_whitespace()
-            .map(|x| x.parse::<u8>().unwrap_or_default())
-            .collect();
+        false => {
+            let records_aliases = records.iter().map(|x| x.alias.as_str()).collect();
+            let aliases_list = get_user_multi(&records_aliases, "Servers to check");
 
-        for i in id_list {
-            for r in records {
-                if r.id == i {
-                    let server_is_online = ping_server(&r.ip);
-                    match server_is_online {
-                        true => online_servers.push(&r.alias),
-                        false => offline_servers.push(&r.alias),
+            for i in aliases_list {
+                for r in records {
+                    if r.alias == i {
+                        match ping_server(&r.ip) {
+                            true => online_servers.push(&r.alias),
+                            false => offline_servers.push(&r.alias),
+                        }
                     }
                 }
             }
         }
     }
-    let online_msg = format!(
-        "Online servers: {:?}. Quantity: {}",
-        online_servers,
-        online_servers.len(),
-    );
-
-    let offline_msg = format!(
-        "Offline servers: {:?}. Quantity: {}",
-        offline_servers,
-        offline_servers.len(),
-    );
-
-    display_message("✅", &online_msg, "green");
-    display_message("❌", &offline_msg, "red");
+    if online_servers.len() > 0 {
+        let online_msg = format!(
+            "Online servers: {:?}. Quantity: {}",
+            online_servers,
+            online_servers.len(),
+        );
+        display_message("✅", &online_msg, "green");
+    }
+    if offline_servers.len() > 0 {
+        let offline_msg = format!(
+            "Offline servers: {:?}. Quantity: {}",
+            offline_servers,
+            offline_servers.len(),
+        );
+        display_message("❌", &offline_msg, "red");
+    }
 
     Ok(())
+}
+
+///Get boolean response
+fn get_user_confirmation(question: &str) -> bool {
+    Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(question)
+        .default(true)
+        .interact()
+        .unwrap()
+}
+
+///Get text response
+fn get_user_input(text: &str, default_text: &str) -> String {
+    Input::with_theme(&ColorfulTheme::default())
+        .with_prompt(text)
+        .default(default_text.into())
+        .interact_text()
+        .unwrap()
+}
+
+///Get singe response from choices
+pub fn get_user_selection(items: &Vec<&str>, title: &str) -> (String, usize) {
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .items(&items)
+        .with_prompt(title)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    (items.get(selection).unwrap().to_string(), selection)
+}
+
+///Get multiple responses
+fn get_user_multi(items: &Vec<&str>, title: &str) -> Vec<String> {
+    let mut res = Vec::new();
+
+    let chosen: Vec<usize> = MultiSelect::with_theme(&ColorfulTheme::default())
+        .items(&items)
+        .with_prompt(title)
+        .interact()
+        .unwrap();
+
+    for i in chosen {
+        let each = items.get(i);
+        if each.is_some() {
+            res.push(each.unwrap().to_string());
+        }
+    }
+    res
 }
