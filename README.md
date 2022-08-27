@@ -6,33 +6,34 @@
 
 Shecret is a CLI SSH/SFTP client
 
-
-Once the connection is selected, the full SSH/SFTP command will be stored on your clipboard, then just paste it on the terminal! 
-
-It also issues SSH commands to multiple servers at once (sort of what [Ansible](https://www.ansible.com/) does).
-
-It also checks server status (ping), so you know whether the server is online.
-
-
-
 ## 2. Features
 
-![](./images/main.png)
+* Store server connections on SQL
+* Send server connection command to clipboard (control + v)
+* Create SSH keys (ed25519 algorithm)
+* Send SSH command to multiple servers at once (sort of what [Ansible](https://www.ansible.com/) does)
+* Check if servers are online/offline (ping)
 
 
-## 3. Instalation
-### 3.1 Cargo
+## 3. Demo
+
+![](./images/demo.gif)
+
+
+## 4. Instalation
+### 4.1 Cargo
 
     cargo install shecret
 
-### 3.2 Linux binary
-Download this [file](https://github.com/costa86/shecret/blob/master/shecret) and make sure you've granted executable permissions to it
+### 4.2 Ready-to-use executable
+
+|OS|Architecture| File*|
+|--|--|--|
+|Linux|x86_64|[shecret](https://github.com/costa86/shecret/blob/master/shecret)|
+
+*Make sure you've granted executable permissions to it
 
     ./shecret
-
-## 4. Demo
-
-[![asciicast](https://asciinema.org/a/gWB0W7h4BER9Raaq4DzpNEsYk.svg)](https://asciinema.org/a/gWB0W7h4BER9Raaq4DzpNEsYk)
 
 ## 5. Documentation
 
